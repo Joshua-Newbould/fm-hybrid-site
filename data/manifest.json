@@ -1,0 +1,1 @@
+{"frames":49,"n":1000,"bounds":[-3.5,3.5],"bits":4,"R":6,"datasets":["moons","gaussians8"],"methods":["fm","hybrid"],"traj":{"moons":{"fm":"traj_moons_fm.bin","hybrid":"traj_moons_hybrid.bin"},"gaussians8":{"fm":"traj_gaussians8_fm.bin","hybrid":"traj_gaussians8_hybrid.bin"}},"data":{"moons":"data_moons.bin","gaussians8":"data_gaussians8.bin"}}

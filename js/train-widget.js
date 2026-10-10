@@ -1,7 +1,7 @@
 /* train-widget.js - trains the baseline and the hybrid side by side in a worker. Nothing runs at load. */
 (function () {
   "use strict";
-  var MAX = 3000, B = 3.5, READOUT_MS = 250;
+  var MAX = 3000, B = 4, READOUT_MS = 250;
   var here = document.currentScript && document.currentScript.src;
   var WORKER_URL = here ? here.replace(/[^\/]*$/, "trainer-worker.js") : "js/trainer-worker.js";
   var METHODS = ["fm", "hybrid"], NAMES = { fm: "Flow matching", hybrid: "Hybrid" };

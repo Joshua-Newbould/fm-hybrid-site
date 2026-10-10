@@ -12,7 +12,6 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  var LIMIT = 3.0;
 
   /* ---------- seeded random numbers ---------- */
 
@@ -37,7 +36,6 @@
   };
   Rng.prototype.int = function (n) { return Math.floor(this.random() * n); };
 
-  function clip(v) { return v < -LIMIT ? -LIMIT : v > LIMIT ? LIMIT : v; }
 
   /* ---------- Gray code ---------- */
 
@@ -61,8 +59,8 @@
       var a = Math.PI * rng.random(), x, y;
       if (i < nUp) { x = Math.cos(a); y = Math.sin(a); }
       else { x = 1 - Math.cos(a); y = 0.5 - Math.sin(a); }
-      pts[2 * i] = clip((x - 0.5) * 2.4 + noise * rng.normal());
-      pts[2 * i + 1] = clip((y - 0.25) * 2.4 + noise * rng.normal());
+      pts[2 * i] = (x - 0.5) * 2.4 + noise * rng.normal();
+      pts[2 * i + 1] = (y - 0.25) * 2.4 + noise * rng.normal();
     }
     for (i = n - 1; i > 0; i--) {
       var j = rng.int(i + 1);
@@ -80,8 +78,8 @@
     var pts = new Float32Array(n * 2);
     for (var i = 0; i < n; i++) {
       var k = rng.int(8), ang = 2 * Math.PI * k / 8;
-      pts[2 * i] = clip(radius * Math.cos(ang) + std * rng.normal());
-      pts[2 * i + 1] = clip(radius * Math.sin(ang) + std * rng.normal());
+      pts[2 * i] = radius * Math.cos(ang) + std * rng.normal();
+      pts[2 * i + 1] = radius * Math.sin(ang) + std * rng.normal();
     }
     return pts;
   }

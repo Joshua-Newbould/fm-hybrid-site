@@ -50,8 +50,16 @@
   section.appendChild(widget);
 
   async function loadData() {
-    const response = await fetch(`data/quant_${currentDataset}.json`);
-    data = await response.json();
+    offsetReadout.textContent = 'loading';
+    let response;
+    try {
+      response = await fetch(`data/buckets_${currentDataset}.json`);
+      if (!response.ok) throw new Error(response.status + ' ' + response.statusText);
+      data = await response.json();
+    } catch (err) {
+      offsetReadout.textContent = 'could not load the bucket data (' + err.message + '); a content blocker may be stopping the request';
+      return;
+    }
     strips.forEach((strip) => strip.querySelectorAll('.bin-label').forEach((label, i) => {
       label.textContent = data.gray[i].toString(2).padStart(4, '0');
     }));

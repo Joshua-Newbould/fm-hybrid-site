@@ -130,3 +130,5 @@ Gate failing after escalation; unforeseen blocker; contract problem; node cost p
 ## Run log
 | run | started | passed/total | retries | escalations | nodes USD | orchestrator USD | wall clock | notes |
 |---|---|---|---|---|---|---|---|---|
+| 20261010-site | 08:20Z | 8/9 | 1 (s7-review retry) | 0 | 1.44 | 2.91 (at record) | 17 min | all gates pass; review found 3 blockers the gates could not see (offset detach, moons noise twice, joint-head sentence) plus a worker that could not pause; fixed directly |
+| 20261010-site-review2 | 08:38Z | 0/1 | 0 | 0 | 0.15 | - | 1 min | earlier blockers confirmed fixed; one new prose blocker (soft decoding and gradients) fixed directly, review.json marks it resolved; final gates pass; committed 085774b |

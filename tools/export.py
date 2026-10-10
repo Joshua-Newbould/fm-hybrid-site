@@ -1,7 +1,22 @@
 """Train fm and hybrid on both datasets and write the data contract to site/data."""
 import json, os, sys
 sys.path.insert(0, "/home/josh/repos/fm-hybrid")
-import torch, fm
+import math, torch, fm
+
+
+def data_unclipped(name, n, gen):
+    # fm.data clamps to [-3, 3], which flattens the moon tips; the site shows the unclipped shapes.
+    if name == "moons":
+        k = torch.randint(0, 2, (n,), generator=gen)
+        a = torch.rand(n, generator=gen) * math.pi
+        p = torch.stack([torch.cos(a), torch.sin(a)], 1)
+        p = torch.where(k[:, None] == 0, p, torch.stack([1 - p[:, 0], 0.5 - p[:, 1]], 1))
+        return (p - torch.tensor([0.5, 0.25])) * 2.4 + 0.08 * torch.randn(n, 2, generator=gen)
+    k = torch.randint(0, 8, (n,), generator=gen).float() * (math.pi / 4)
+    return 2 * torch.stack([torch.cos(k), torch.sin(k)], 1) + 0.2 * torch.randn(n, 2, generator=gen)
+
+
+fm.data = data_unclipped
 torch.set_num_threads(8)
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "site", "data")
@@ -83,7 +98,7 @@ def results():
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    man = dict(frames=STEPS + 1, n=N, bounds=[-3.5, 3.5], bits=B, R=R, datasets=DS, methods=MS, traj={}, data={})
+    man = dict(frames=STEPS + 1, n=N, bounds=[-4, 4], bits=B, R=R, datasets=DS, methods=MS, traj={}, data={})
     for ds in DS:
         man["traj"][ds] = {}
         for m in MS:
@@ -91,7 +106,7 @@ if __name__ == "__main__":
             fn = f"traj_{ds}_{m}.bin"
             open(os.path.join(OUT, fn), "wb").write(trajectory(model, m, ds))
             man["traj"][ds][m] = fn
-            if m == "hybrid": dump(f"quant_{ds}.json", quant(model, ds))
+            if m == "hybrid": dump(f"buckets_{ds}.json", quant(model, ds))
             print(ds, m, "done", flush=True)
         man["data"][ds] = f"data_{ds}.bin"
         open(os.path.join(OUT, man["data"][ds]), "wb").write(fm.data(ds, N, torch.Generator().manual_seed(2000)).float().numpy().tobytes())

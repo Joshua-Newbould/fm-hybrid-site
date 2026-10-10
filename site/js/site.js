@@ -29,7 +29,7 @@
     if (!cv) return;
     var g = cv.getContext("2d"), W = 0, H = 0, dpr = 1, N = 0, P = [], shape = 0, t0 = 0, raf = 0, on = true;
     var mx = -1e4, my = -1e4, cvx = 0, cvy = 0, lastMove = 0, lastNow = 0, snap = false, cols = [];
-    var HOLD0 = 900, FLOW = 3200, HOLD1 = 2200, CYCLE = HOLD0 + FLOW + HOLD1;
+    var HOLD0 = 2250, FLOW = 6400, HOLD1 = 5500, CYCLE = HOLD0 + FLOW + HOLD1;
 
     function seed() {
       var f = shape % 2 ? ring : moons;
@@ -70,27 +70,38 @@
       g.fillStyle = "rgba(0,0,0," + fade + ")";
       g.fillRect(0, 0, W, H);
       g.globalCompositeOperation = "source-over";
-      // Each dot carries a velocity. The flow pulls it towards where the schedule
-      // says it should be (a spring), the pointer knocks it away like a small ball
-      // with a push that grows with pointer speed, and damping brings it back.
+      // Each dot is a small ball. The pointer is a cue ball: a dot it touches takes the
+      // pointer's velocity and bounces off it, then rolls, bounces off the walls and slows
+      // under friction. The flow pulls a dot back to its place only once it is slow, so a
+      // struck dot travels first and is gathered back as its speed dies away.
       var dt = lastNow ? Math.min((now - lastNow) / 1000, 0.05) : 1 / 60;
       lastNow = now;
-      var damp = Math.exp(-4.5 * dt), R = 80, speed = Math.sqrt(cvx * cvx + cvy * cvy);
+      var RC = 30, REST = 0.8, tooFast = 1500;
       cvx *= 0.82; cvy *= 0.82;
       for (var i = 0; i < N; i++) {
         var p = P[i], s = ease(Math.min(Math.max((u - p.lag) / (1 - 0.18), 0), 1));
         var tx = cx + ((1 - s) * p.ax + s * p.bx) * sc, ty = cy - ((1 - s) * p.ay + s * p.by) * sc;
         if (p.x === undefined || snap) { p.x = tx; p.y = ty; p.vx = 0; p.vy = 0; }
-        p.vx += (tx - p.x) * 70 * dt; p.vy += (ty - p.y) * 70 * dt;
+        var sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy), w = 1 / (1 + (sp / 110) * (sp / 110));
+        p.vx += (tx - p.x) * 70 * w * dt; p.vy += (ty - p.y) * 70 * w * dt;
+        var dmp = Math.exp(-(0.7 + 5 * w) * dt);
+        p.vx *= dmp; p.vy *= dmp;
         var dx = p.x - mx, dy = p.y - my, d2 = dx * dx + dy * dy;
-        if (d2 < R * R) {
-          var d = Math.sqrt(d2) + 1e-3, k = (1 - d / R) * (700 + 2.5 * speed) * dt;
-          p.vx += (dx / d) * k + cvx * 0.35 * (1 - d / R); p.vy += (dy / d) * k + cvy * 0.35 * (1 - d / R);
-        }
-        p.vx *= damp; p.vy *= damp;
+        if (d2 < RC * RC) {
+          var d = Math.sqrt(d2) + 1e-6, nx = dx / d, ny = dy / d;
+          p.x = mx + nx * RC; p.y = my + ny * RC;
+          if (!p.hit) {   // one strike per contact: a random direction (away from the cue) and a random speed
+            var ang = Math.random() * 6.2832, spd = 220 + Math.random() * 700 + 0.4 * Math.sqrt(cvx * cvx + cvy * cvy);
+            p.vx = Math.cos(ang) * spd; p.vy = Math.sin(ang) * spd;
+            if (p.vx * nx + p.vy * ny < 0) { p.vx = -p.vx; p.vy = -p.vy; }
+            p.hit = true;
+          }
+        } else p.hit = false;
         var v2 = p.vx * p.vx + p.vy * p.vy;
-        if (v2 > 2250000) { var q = 1500 / Math.sqrt(v2); p.vx *= q; p.vy *= q; }
+        if (v2 > tooFast * tooFast) { var q = tooFast / Math.sqrt(v2); p.vx *= q; p.vy *= q; }
         p.x += p.vx * dt; p.y += p.vy * dt;
+        if (p.x < 1) { p.x = 1; p.vx = -p.vx * REST; } else if (p.x > W - 1) { p.x = W - 1; p.vx = -p.vx * REST; }
+        if (p.y < 1) { p.y = 1; p.vy = -p.vy * REST; } else if (p.y > H - 1) { p.y = H - 1; p.vy = -p.vy * REST; }
         g.fillStyle = cols[Math.max(0, Math.min(15, (p.c * 15) | 0))];
         g.fillRect(p.x - 0.9, p.y - 0.9, 1.8, 1.8);
       }
@@ -121,6 +132,7 @@
     still.addEventListener && still.addEventListener("change", function () { if (still.matches) staticFrame(); else start(); });
     var mq = window.matchMedia("(prefers-color-scheme: light)");
     mq.addEventListener && mq.addEventListener("change", palette);
+    window.addEventListener("themechange", palette);
   }
 
   function reveal() {
@@ -133,7 +145,7 @@
   }
 
   function navSpy() {
-    var links = document.querySelectorAll("#top nav a");
+    var links = document.querySelectorAll(".site-nav a");
     if (!("IntersectionObserver" in window)) return;
     var io = new IntersectionObserver(function (es) {
       es.forEach(function (e) {
@@ -144,6 +156,21 @@
     document.querySelectorAll("main > section[id]").forEach(function (s) { io.observe(s); });
   }
 
-  function go() { hero(); reveal(); navSpy(); }
+  function theme() {
+    var root = document.documentElement, btn = document.querySelector(".theme-toggle");
+    var saved = null;
+    try { saved = localStorage.getItem("theme"); } catch (e) {}
+    if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var dark = root.getAttribute("data-theme") ? root.getAttribute("data-theme") === "dark" : !window.matchMedia("(prefers-color-scheme: light)").matches;
+      var next = dark ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      window.dispatchEvent(new Event("themechange"));
+      window.dispatchEvent(new Event("resize"));   // canvases read their colours on redraw
+    });
+  }
+  function go() { theme(); hero(); reveal(); navSpy(); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go); else go();
 })();

@@ -115,7 +115,7 @@ def check_data():
     man = load_json(mpath, fails)
     if man is None:
         return fails
-    for k, want in (("frames", 49), ("n", 1000), ("bounds", [-3.5, 3.5]), ("bits", 4), ("R", 6)):
+    for k, want in (("frames", 49), ("n", 1000), ("bounds", [-4, 4]), ("bits", 4), ("R", 6)):
         if man.get(k) != want:
             fails.append(f"manifest.{k} = {man.get(k)!r}, want {want!r}")
     if sorted(man.get("datasets", [])) != sorted(DS) or sorted(man.get("methods", [])) != sorted(MS):
@@ -134,8 +134,8 @@ def check_data():
                 fails.append(f"{f}: {len(raw)} bytes, want {fr * n * 8}")
                 continue
             a = struct.unpack(f"<{fr * n * 2}f", raw)
-            if not all(math.isfinite(q) and abs(q) <= 4 for q in a):
-                fails.append(f"{f}: non-finite value or |x| > 4")
+            if not all(math.isfinite(q) and abs(q) <= 5 for q in a):
+                fails.append(f"{f}: non-finite value or |x| > 5")
             first[m] = a[: n * 2]
         if len(first) == 2 and first["fm"] != first["hybrid"]:
             fails.append(f"{ds}: frame 0 differs between fm and hybrid")
@@ -146,7 +146,7 @@ def check_data():
                 fails.append(f"{f}: {len(raw)} bytes, want 8000")
         except Exception as e:
             fails.append(f"data {ds}: {e!r}")
-        q = load_json(os.path.join(DATA, f"quant_{ds}.json"), fails)
+        q = load_json(os.path.join(DATA, f"buckets_{ds}.json"), fails)
         if q:
             fails += quant_fails(ds, q)
     fx = load_json(os.path.join(DATA, "fixture.json"), fails)
@@ -169,7 +169,7 @@ def check_data():
 
 def quant_fails(ds, q):
     f = []
-    tag = f"quant_{ds}.json"
+    tag = f"buckets_{ds}.json"
     try:
         R, nn = q["R"], q["n"]
         if q["bits"] != 4 or R != 6 or nn != 512:

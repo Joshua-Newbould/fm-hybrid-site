@@ -60,7 +60,7 @@ try {
     if (!(b < 0.9 * a)) fails.push(`${m}: last-50 loss ${b.toFixed(4)} not < 0.9 * first-50 ${a.toFixed(4)}`);
     const s = tr.sample(500, 20, 3);
     if (!(s instanceof Float32Array) || s.length !== 1000) fails.push(`${m}: sample is not a Float32Array of 1000`);
-    else if (s.some((q) => !Number.isFinite(q) || q < -4 || q > 4)) fails.push(`${m}: sample value not finite or outside [-4, 4]`);
+    else if (s.some((q) => !Number.isFinite(q) || q < -5 || q > 5)) fails.push(`${m}: sample value not finite or outside [-5, 5]`);
     const e1 = FMTrainer.energyDistance(s, ref);
     if (!(e1 < e0[k])) fails.push(`${m}: energy distance ${e1} not below step 0 value ${e0[k]}`);
     console.log(`${m}: loss ${a.toFixed(3)} -> ${b.toFixed(3)}, energy ${e0[k].toFixed(4)} -> ${e1.toFixed(4)}`);

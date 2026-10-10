@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Flow matching with a quantised velocity head</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="Flow matching against a hybrid with a quantised velocity head, with live animations and in-browser training.">
+<link rel="stylesheet" href="css/style.css">
+<script defer src="js/site.js"></script>
+<script defer src="js/flow.js"></script>
+<script defer src="js/quant.js"></script>
+<script defer src="js/train-widget.js"></script>
+</head>
+<body>
+<div class="progress" aria-hidden="true"></div>
+<header id="top">
+<canvas class="hero-canvas" aria-hidden="true"></canvas>
+<div class="hero-inner">
+<p class="eyebrow"><span class="dot fm"></span>baseline <span class="vs">against</span> <span class="dot hy"></span>hybrid</p>
+<h1>Flow matching with a <em>quantised</em> velocity head</h1>
+<p class="lede">Two networks learn to push Gaussian noise onto a target shape. One predicts velocity directly. The other first picks one of sixteen buckets per component, then adds a small correction. Watch them move, look inside the buckets, and train both in your browser.</p>
+<nav aria-label="Sections">
+<a href="#flow">Flow</a>
+<a href="#quant">Quantisation</a>
+<a href="#train">Training</a>
+<a href="#methods">Methods</a>
+<a href="#results">Results</a>
+</nav>
+</div>
+<a class="scroll-cue" href="#flow" aria-label="Scroll to the first section"><span></span></a>
+</header>
+<main>
+<section id="flow" data-widget="flow"><h2>From noise to data</h2>
+<p class="lede">The same thousand noise samples, integrated by each trained model. Drag t to scrub through the flow, or press play to loop it.</p>
+</section>
+<section id="quant"><h2>The quantised velocity</h2>
+<p class="lede">Each velocity component is cut into sixteen buckets over [-6, 6]. The labels are Gray codes, so neighbouring buckets differ by one bit. Shaded columns show where the velocities of all 512 sampled particles land. The bars are the hybrid's predicted mass for one particle, the solid line is the expected centre, and the arrow is the offset that turns it into the final prediction.</p>
+</section>
+<section id="train"><h2>Train it yourself</h2></section>
+<section id="methods" class="prose"><h2>How the two methods work</h2>
+<!-- prose:methods -->
+<h3>Flow matching</h3>
+<p>Flow matching learns a velocity field that carries samples from Gaussian noise toward the data distribution. During training, we sample a random time t uniformly from [0,1], blend the data x1 and noise x0 at that time to create xt, and train a network to predict the true velocity vt = x1 - x0. The network sees the input (xt, t) and minimizes mean squared error between its velocity prediction and the target. At inference, we start from noise and integrate this learned velocity field forward in time to generate new samples.</p>
+
+<h3>The hybrid approach</h3>
+<p>The hybrid method splits each velocity component into quantisation buckets. Each component uses 16 Gray-coded buckets spanning the range [-6, 6]. For each component, a 16-way softmax head predicts a probability over the buckets. The head is called joint because it predicts all four bits of the Gray code at once, not one bit at a time. Rather than selecting the bucket with the highest probability, we compute the expected value by taking a weighted sum of the bucket centres, each weighted by its predicted probability. Soft decoding changes the velocity the sampler sees and the target the offset head trains against. The bucket probabilities themselves are trained only by the cross-entropy against the true bucket.</p>
+<p>The quantisation alone does not fully capture the target velocity, so the model learns an offset head that predicts the remaining difference. The offset is trained by minimising the squared error between the true velocity and the soft-decoded centre plus the offset, with the centre held fixed so that this error does not reach the bucket probabilities. The final velocity prediction combines both: the expected value from the quantised buckets plus the learned correction.</p>
+
+<h3>Development and results</h3>
+<p>We tested multiple configurations in sequence. Early iterations used hard decoding (selecting the highest-probability bucket), which produced poor results around 0.2. Switching to soft expected-value decoding dropped error dramatically. We then experimented with different numbers of bits, the range R, and different training weight schemes. Switching from four per-bit outputs to the 16-way joint head gave the best run on both datasets. No run removed the offset head, so its contribution was not measured on its own.</p>
+<p>The best configuration on both datasets is joint16_expect: 16 Gray-coded buckets with joint softmax heads and expected-value decoding. On moons, it achieves 0.01324 compared to baseline 0.01105. On gaussians8, it achieves 0.00765 compared to baseline 0.00486. The hybrid did not meet the success criterion of staying within one baseline standard deviation on both datasets. The results do not say why. The hybrid has more outputs and two loss terms to balance, and three seeds leave wide error bars, so the gap may be noise, tuning, or a real cost of predicting a velocity through buckets.</p>
+<!-- /prose:methods -->
+</section>
+<section id="results"><h2>Results</h2>
+<p class="lede">Lower is better. Means and standard deviations are over three seeds.</p>
+<div class="table-wrap">
+<table class="headline">
+<thead>
+<tr>
+<th>Dataset</th>
+<th class="c-fm">Baseline (mean)</th>
+<th class="c-fm">Baseline (std)</th>
+<th class="c-hy">Hybrid (mean)</th>
+<th class="c-hy">Hybrid (std)</th>
+<th>Config</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moons</td>
+<td>0.01105</td>
+<td>0.00801</td>
+<td>0.01324</td>
+<td>0.00799</td>
+<td><code>head=joint, decode=expect, offset_target=expect</code></td>
+</tr>
+<tr>
+<td>Gaussians8</td>
+<td>0.00486</td>
+<td>0.00027</td>
+<td>0.00765</td>
+<td>0.00279</td>
+<td><code>head=joint, decode=expect, offset_target=expect</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>Iteration log</h3>
+<div class="table-wrap">
+<table class="log">
+<thead>
+<tr>
+<th>Note</th>
+<th>Change</th>
+<th>Moons (mean)</th>
+<th>Gaussians8 (mean)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>default</td>
+<td>Initial config: hard decode, offset_target=true</td>
+<td>0.22983</td>
+<td>0.20788</td>
+</tr>
+<tr>
+<td>expect</td>
+<td>Changed decode from hard to expect</td>
+<td>0.01441</td>
+<td>0.01157</td>
+</tr>
+<tr>
+<td>bits6_expect</td>
+<td>Changed bits from 4 to 6</td>
+<td>0.01613</td>
+<td>0.01307</td>
+</tr>
+<tr>
+<td>pred_expect</td>
+<td>Changed offset_target to pred</td>
+<td>0.14556</td>
+<td>0.07154</td>
+</tr>
+<tr>
+<td>woff10_expect</td>
+<td>Changed w_off from 1 to 10</td>
+<td>0.01494</td>
+<td>0.01399</td>
+</tr>
+<tr>
+<td>smooth05_expect</td>
+<td>Added smooth=0.05</td>
+<td>0.01537</td>
+<td>0.01208</td>
+</tr>
+<tr>
+<td>wide256_expect</td>
+<td>Changed width to 256</td>
+<td>0.01480</td>
+<td>0.01585</td>
+</tr>
+<tr>
+<td>R4_expect</td>
+<td>Changed R from 6 to 4</td>
+<td>0.02090</td>
+<td>0.01144</td>
+</tr>
+<tr>
+<td>expect_consistent</td>
+<td>Changed offset_target to expect</td>
+<td>0.04984</td>
+<td>0.01520</td>
+</tr>
+<tr class="best">
+<td>joint16_expect</td>
+<td>Added head=joint for consistency</td>
+<td>0.01324</td>
+<td>0.00765</td>
+</tr>
+<tr>
+<td>joint16_expect_w03</td>
+<td>Changed w_bce from 1 to 0.3</td>
+<td>0.03545</td>
+<td>0.01884</td>
+</tr>
+<tr>
+<td>hl16</td>
+<td>Added smooth_bins=1 with bits=4</td>
+<td>0.01777</td>
+<td>0.01121</td>
+</tr>
+<tr>
+<td>hl32</td>
+<td>Increased bits to 5</td>
+<td>0.01920</td>
+<td>0.01611</td>
+</tr>
+<tr>
+<td>hl64</td>
+<td>Increased bits to 6</td>
+<td>0.01968</td>
+<td>0.00780</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+<footer><p>Plain HTML, CSS and JavaScript. Every number on this page comes from the fm-hybrid runs. <a href="#top">Back to top</a></p></footer>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+ "blockers": [],
+ "majors": [],
+ "minors": [
+  "site/js/trainer.js:1-3 and :55: stale 'match code/fm/datasets.py' comment; the source is fm.py. Also twoMoons splits moons exactly half and half (nUp) where fm.py:11 draws the moon at random per point, and sample() defaults to 40 steps (worker uses 20) versus fm.py's 100 midpoint steps; the page makes no claim about either.",
+  "site/js/trainer.js:143-145 and trainer-worker.js:44: in-browser nets are hidden 64, batch 128 versus fm.py width 128, batch 512; a design choice, and the page does not claim otherwise, so no defect."
+ ],
+ "resolved": [
+  "site/index.html:47 (methods, hybrid): 'This soft decoding preserves gradient information during training' is wrong for the trained loss; in fm.py:91 and trainer.js lossGrad only the cross-entropy reaches the logits and the soft expectation is detached in the offset term, so soft decoding changes the offset target and the sampled velocity, not the logit gradients.",
+  "site/index.html:48: 'trained by minimizing the error between true velocity and the sum of the soft-decoded centre plus the offset' reads as a joint loss; fm.py:91 detaches the expectation (v - expect.detach()), so the loss only trains the offset head. Say the centre is held fixed.",
+  "site/index.html results table (std columns): values are population std (ddof 0) over 3 seeds, which matches results.jsonl but is not stated; sample std would be about 1.2x larger.",
+  "site/index.html iteration log, hl64 row: moons mean 0.01969 follows README.md:34 but results.jsonl rounds to 0.01968; all other rows and both headline rows match results.jsonl exactly."
+ ],
+ "resolved_note": "fixed directly by the orchestrator after the re-review: sentence at index.html:47 replaced, offset sentence says the centre is held fixed, hl64 moons mean 0.01968, stale comment"
+}

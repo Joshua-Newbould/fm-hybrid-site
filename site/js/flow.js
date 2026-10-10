@@ -447,6 +447,8 @@
 
   FlowPlayer.prototype._onDatasetChange = function () {
     this._initCanvases();
+    this._resizeCanvas("fm");
+    this._resizeCanvas("hybrid");
     this.setT(this._t);
   };
 
